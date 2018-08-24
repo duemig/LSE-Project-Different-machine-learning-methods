@@ -1,0 +1,2636 @@
+---
+title: "Univariate regression, Multivariate regression, Logistic regression, K-nearest neighbors, Naive Bayes, Text analysis and K-Means Clustering"
+author: "David Duemig"
+output: html_document
+---
+
+### Functions
+
+```{r}
+#~ Multiple plot function
+
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL, title="") {
+  require(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (nchar(title)>0){
+    layout<-rbind(rep(0, ncol(layout)), layout)
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout), heights =if(nchar(title)>0){unit(c(0.5, rep(5,nrow(layout)-1)), "null")}else{unit(c(rep(5, nrow(layout))), "null")} )))
+    
+    # Make each plot, in the correct location
+    if (nchar(title)>0){
+      grid.text(title, vp = viewport(layout.pos.row = 1, layout.pos.col = 1:ncol(layout)))
+    }
+    
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+
+### Libraries
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(pROC)
+library(class)
+library(e1071)
+library(knitr)
+library(quanteda)
+```
+
+
+### Question 1
+
+Using the `Boston` dataset (`MASS` package), predict the per capita crime rate using the other variables in this data set. In other words, per capita crime rate is the response, and the other variables are the predictors.
+
+
+## Data
+
+```{r}
+# Load data
+data(Boston, package = "MASS")
+```
+
+
+## Overview
+
+```{r}
+# Show class
+class(Boston)
+
+# Show glimpse
+glimpse(Boston)
+
+# Show column names
+names(Boston)
+
+# Show head 
+head(Boston)
+
+# Show tail
+tail(Boston)
+
+# Show dimensions
+dim(Boston)
+
+# Show number of rows
+nrow(Boston)
+
+# Show number of columns
+ncol(Boston)
+
+# Show summary
+summary(Boston)
+
+# Plot Summary Statistics
+ggpairs(Boston, aes(alpha = 0.1)) +
+        ggplot2::labs(title = "Summary Statistics") +
+        theme(plot.title = element_text(color="black", size=15.5, face="bold", hjust = 0.5))
+
+# Compute Correlation Matrix
+cor(Boston[,])
+
+# Plot Correlation Matrix 1
+pairs(Boston[,], main = "Correlation Matrix 1")
+
+# Plot Correlation Matrix 2
+ggcorr(Boston[,], palette = "RdYlGn", name = "rho", 
+       label = FALSE) +
+       ggplot2::labs(title = "Correlation Matrix 2") +
+       theme(plot.title = element_text(color = "black", size = 15.5, face = "bold", hjust = 0.7))
+```
+
+**Summary** <br />
+The dataset contains information collected by the US Census Service concerning housing in the area of Boston Mass. We will seek to predict `CRIM` (per capita crime rate by town) using 13 predictors such as `PTRATIO` (pupil-teacher ratio by town), `LSTAT` (% lower status of the population), and `MEDV` (Median value of owner-occupied homes in $1000's). The dataset is small in size with only 506 cases. 
+
+
+(a) For each predictor, fit a simple (single-variable) linear regression model to predict the response. In which of the models is there a statistically significant association between the predictor and the response? 
+
+## Linear model
+
+```{r}
+#~ Fit linear model (variable: zn = proportion of residential land zoned for lots over 25,000 sq.ft.)
+lm.fit.zn <- lm(crim ~ zn, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.zn)
+
+# Show summary of coefficients 
+summary(lm.fit.zn)$coef
+
+# Show coefficients
+lm.coef.zn <- coef(lm.fit.zn)[2]; lm.coef.zn
+
+# Show p-values
+lm.p.zn <- summary(lm.fit.zn)$coef[,4][2]; lm.p.zn
+
+
+#~ Fit linear model (variable: indus = proportion of non-retail business acres per town)
+lm.fit.indus <- lm(crim ~ indus, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.indus)
+
+# Show summary of coefficients 
+summary(lm.fit.indus)$coef
+
+# Show coefficients
+lm.coef.indus <- coef(lm.fit.indus)[2]; lm.coef.indus
+
+# Show p-values
+lm.p.indus <- summary(lm.fit.indus)$coef[,4][2]; lm.p.indus
+
+
+#~ Fit linear model (variable: chas = Charles River dummy variable (= 1 if tract bounds river; 0 otherwise))
+lm.fit.chas <- lm(crim ~ chas, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.chas)
+
+# Show summary of coefficients 
+summary(lm.fit.chas)$coef
+
+# Show coefficients
+lm.coef.chas <- coef(lm.fit.chas)[2]; lm.coef.chas
+
+# Show p-values
+lm.p.chas <- summary(lm.fit.chas)$coef[,4][2]; lm.p.chas
+  
+
+#~ Fit linear model (variable: nox = nitrogen oxides concentration (parts per 10 million))
+lm.fit.nox <- lm(crim ~ nox, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.nox)
+
+# Show summary of coefficients 
+summary(lm.fit.nox)$coef
+
+# Show coefficients
+lm.coef.nox <- coef(lm.fit.nox)[2]; lm.coef.nox
+
+# Show p-values
+lm.p.nox <- summary(lm.fit.nox)$coef[,4][2]; lm.p.nox
+  
+  
+#~ Fit linear model (variable: rm = average number of rooms per dwelling)
+lm.fit.rm <- lm(crim ~ rm, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.rm)
+
+# Show summary of coefficients 
+summary(lm.fit.rm)$coef
+
+# Show coefficients
+lm.coef.rm <- coef(lm.fit.rm)[2]; lm.coef.rm
+
+# Show p-values
+lm.p.rm <- summary(lm.fit.rm)$coef[,4][2]; lm.p.rm
+
+
+#~ Fit linear model (variable: age = proportion of owner-occupied units built prior to 1940)
+lm.fit.age <- lm(crim ~ age, data = Boston)
+  
+# Show summary of linear regression model
+summary(lm.fit.age)
+
+# Show summary of coefficients 
+summary(lm.fit.age)$coef
+
+# Show coefficients
+lm.coef.age <- coef(lm.fit.age)[2]; lm.coef.age
+
+# Show p-values
+lm.p.age <- summary(lm.fit.age)$coef[,4][2]; lm.p.age
+  
+
+#~ Fit linear model (variable: dis = weighted mean of distances to five Boston employment centres)
+lm.fit.dis <- lm(crim ~ dis, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.dis)
+
+# Show summary of coefficients 
+summary(lm.fit.dis)$coef
+
+# Show coefficients
+lm.coef.dis <- coef(lm.fit.dis)[2]; lm.coef.dis
+
+# Show p-values
+lm.p.dis <- summary(lm.fit.dis)$coef[,4][2]; lm.p.dis
+
+
+#~ Fit linear model (variable: rad = index of accessibility to radial highways)
+lm.fit.rad <- lm(crim ~ rad, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.rad)
+
+# Show summary of coefficients 
+summary(lm.fit.rad)$coef
+
+# Show coefficients
+lm.coef.rad <- coef(lm.fit.rad)[2]; lm.coef.rad
+
+# Show p-values
+lm.p.rad <- summary(lm.fit.rad)$coef[,4][2]; lm.p.rad
+
+
+#~ Fit linear model (variable: tax = full-value property-tax rate per \$10,000)
+lm.fit.tax <- lm(crim ~ tax, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.tax)
+
+# Show summary of coefficients 
+summary(lm.fit.tax)$coef
+
+# Show coefficients
+lm.coef.tax <- coef(lm.fit.tax)[2]; lm.coef.tax
+
+# Show p-values
+lm.p.tax <- summary(lm.fit.tax)$coef[,4][2]; lm.p.tax
+  
+
+#~ Fit linear model (variable: ptratio = pupil-teacher ratio by town)
+lm.fit.ptratio <- lm(crim ~ ptratio, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.ptratio)
+
+# Show summary of coefficients 
+summary(lm.fit.ptratio)$coef
+
+# Show coefficients
+lm.coef.ptratio <- coef(lm.fit.ptratio)[2]; lm.coef.ptratio
+
+# Show p-values
+lm.p.ptratio <- summary(lm.fit.ptratio)$coef[,4][2]; lm.p.ptratio
+
+  
+#~ Fit linear model (variable: black = 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town)
+lm.fit.black <- lm(crim ~ black, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.black)
+
+# Show summary of coefficients 
+summary(lm.fit.black)$coef
+
+# Show coefficients
+lm.coef.black <- coef(lm.fit.black)[2]; lm.coef.black
+
+# Show p-values
+lm.p.black <- summary(lm.fit.black)$coef[,4][2]; lm.p.black
+
+
+#~ Fit linear model (variable: lstat = lower status of the population (percent))
+lm.fit.lstat <- lm(crim ~ lstat, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.lstat)
+
+# Show summary of coefficients 
+summary(lm.fit.lstat)$coef
+
+# Show coefficients
+lm.coef.lstat <- coef(lm.fit.lstat)[2]; lm.coef.lstat
+
+# Show p-values
+lm.p.lstat <- summary(lm.fit.lstat)$coef[,4][2]; lm.p.lstat
+
+
+#~ Fit linear model (variable: medv = median value of owner-occupied homes in \$1000s)
+lm.fit.medv <- lm(crim ~ medv, data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.medv)
+
+# Show summary of coefficients 
+summary(lm.fit.medv)$coef
+
+# Show coefficients
+lm.coef.medv <- coef(lm.fit.medv)[2]; lm.coef.medv
+
+# Show p-values
+lm.p.medv <- summary(lm.fit.medv)$coef[,4][2]; lm.p.medv
+
+
+# Gather coefficients
+lm.coef.single <- data.frame(c(lm.coef.zn, lm.coef.indus, lm.coef.chas, lm.coef.nox, lm.coef.rm, lm.coef.age, lm.coef.dis, lm.coef.rad, lm.coef.tax, lm.coef.ptratio, lm.coef.black, lm.coef.lstat, lm.coef.medv))
+
+# Gather p-values
+lm.p.single <- data.frame(c(lm.p.zn, lm.p.indus, lm.p.chas, lm.p.nox, lm.p.rm, lm.p.age, lm.p.dis, lm.p.rad, lm.p.tax, lm.p.ptratio, lm.p.black, lm.p.lstat, lm.p.medv))
+```
+
+**Interpretation** <br />
+
+The p-value for `chas` is approximately 20.94%. The other p-values are small (the largest being `zn` with approximately 0.001%). <br />
+
+Typical p-value cutoffs for rejecting the null hypothesis are 5% or 1%, and thus there is no clear evidence of a real association between `chas` and `crim`. As a result, we cannot reject the null hypothesis that there is no relationship between `chas` and `crim`. <br />
+
+For all `other variables` there is some evidence of a real association between these `other variables` and `crim`. In other words, they appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+(b) Fit a multiple regression model to predict the response using all of the predictors. Describe your results. For which predictors can we reject the null hypothesis $H_0 : \beta_j = 0$?
+
+## Multiple regression
+
+```{r}
+#~ Fit linear model (using all variables)
+lm.fit.multi <- lm(crim ~ . , data = Boston)
+
+# Show summary of linear regression model
+summary(lm.fit.multi)
+
+# Show summary of coefficients 
+summary(lm.fit.multi)$coef
+
+# Show coefficients
+lm.coef.multi <- as.data.frame(coef(lm.fit.multi)[-1]); lm.coef.multi
+
+# Show p-values
+lm.p.multi <- as.data.frame(summary(lm.fit.multi)$coef[,4][-1]); lm.p.multi
+```
+
+**Interpretation** <br />
+
+As mentioned above, typical p-value cutoffs for rejecting the null hypothesis are 5% or 1%, and thus there is no clear evidence of a real association between the following predictor variables and `crim`: <br />
+`age` = 93.55% <br />
+`chas`= 52.59% <br />
+`rm` = 48.31% <br />
+`tax` = 46.38% <br />
+`indus` = 44.43% <br />
+`ptratio` = 14.66% <br />
+`lstat` = 9.62% <br />
+`nox` = 5.12% <br />
+
+In other words, for these predictors we cannot reject the null hypothesis. <br />
+
+
+For a p-value cutoff of **5%** there is some evidence of a real association between <br />
+`black` = 4.07%,
+`zn` = 1.70% and `crim`. <br />
+
+Therefore, `black` and `zn` appear to be statistically significant at a p-value of 0.05 and we can reject the null hypothesis.
+
+
+Finally, for a p-value cutoff of **1%** there is some evidence of a real association between <br />
+`medv` = 0.11%,
+`dis` = 0.05%,
+`rad` = 6.46e-09% and `crim`. <br />
+
+Thus, `medv`, `dis` and `rad` appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis.
+
+
+
+(c) How do your results from (a) compare to your results from (b)? Create a plot displaying the univariate regression coefficients from (a) on the $x$-axis, and the multiple regression coefficients from (b) on the $y$-axis. That is, each predictor is displayed as a single point in the plot. Its coefficient in a simple linear regression model is shown on the $x$-axis, and its coefficient estimate in the multiple linear regression model is shown on the $y$-axis. Hint: To get the coefficients from a fitted regression model, you can use `coef()`.  Note that you are not interested in the intercept.
+
+## Comparison
+
+```{r}
+# combine (single-variable) linear regression model and multiple regression model
+
+# Combine p-values
+p.values <- cbind(lm.p.single, lm.p.multi)
+colnames(p.values) <- (c("Single", "Multi"))
+
+# Combine coefficients
+coef.values <- cbind(lm.coef.single, lm.coef.multi)
+colnames(coef.values) <- (c("Single", "Multi"))
+
+
+# Plot p-values
+p.values.plot <- ggplot(p.values, aes(x=Single, y=Multi)) +
+geom_point() +
+ggtitle("P-values") 
+
+# Plot coefficients
+coef.values.plot <- ggplot(coef.values, aes(x=Single, y=Multi)) +
+geom_point() +
+ggtitle("Coefficients") 
+
+# Plot both p-values and coefficients
+multiplot(p.values.plot, coef.values.plot, title="")
+```
+
+**Interpretation** <br />
+
+Comparing the coefficients of the (single-variable) linear regression model with those given by the multiple linear regression model, we notice that the multiple regression coefficient estimates and the (single-variable) regression coefficient estimates all cluster around 0. However, regarding the `nox` estimate the two models provide significantly different results. <br />
+
+For the (single-variable) linear regression model the p-value for `chas` was approximately 20.94%. The p-values for the `other variables` (excluding `chas`) were small. Thus, there was no clear evidence of a statistically significant association between `chas` and `crim` but some evidence of a statistically significant association between the `other variables` (excluding `chas`) and `crim`. In other words, all variables except `chas` appeared to be statistically significant at a p-value of 0.01. <br />
+
+Comparing these p-values to those given by the multiple linear regression model, we notice that the p-value for `chas` still suggests no clear evidence of a real association between `chas` and `crim`. However, while in the single-variable setting all `other variables` suggested some evidence of a real association between these variables and `crim`, the picture changes for the multiple regression. To be more precise, `black` (4.07%) & `zn` (1.70%) are significant at p-values of 0.05. The variables `medv` (0.11%) & `dis` (0.05%) & `rad` (6.46e-09%) are significant at a p-value of 0.01. All `other variables` are no longer significant. <br />
+
+This illustrates that the simple and multiple regression coefficients can be quite different. This difference stems from the fact that in the simple regression case, the slope term represents the average affect, **ignoring other predictors**. On the contrary, in the multiple regression setting, the coefficient represents the average effect while **holding all other variables fixed**. <br />
+
+Regression allows us to determine the unique effect that each predictor variable has on the outcome variable. If two or more predictor variables are statistically related to each other, then the simple regression model of regressing a predictor variable on the outcome variable will give a specious estimate of the true effect because the effect of some other predictor variable(s) will also influence the regression output. The same will be true if other statistically related variables are singly regressed on the outcome variable. However, the value in the simple regression model is that it allows us to observe the unique effect that each predictor variable has on the outcome variable even if some or all of the predictor variables are statistically related. <br />
+
+### Question 2
+
+Using the `Boston` data set, fit classification models in order to predict whether a given suburb has a crime rate above or below the median. Produce a confusion matrix for, and describe the findings from your model, for each of:
+
+## I. Without Splitting data into training and testing data
+
+a.  logistic regression
+
+## Logistic regression - Model 1
+
+```{r}
+# Compute the median crime rate and create response or dependent variable
+Boston$crim2 <- relevel(factor(ifelse(Boston$crim > median(Boston$crim), "Above", "Below")), "Below")
+
+# Show dummy variable
+contrasts(Boston$crim2)
+
+# Fit a logistic regression model using all data
+LR.fit.1 <- glm(Boston$crim2 ~ . -crim,
+            data = Boston, family = binomial)
+
+# Show summary of logistic regression model
+summary(LR.fit.1)
+
+# Show summary of coefficients 
+summary(LR.fit.1)$coef
+
+# Show coefficients
+coef(LR.fit.1)
+
+# Show p-values
+summary(LR.fit.1)$coef[,4]
+```
+
+**Interpretation** <br />
+
+There is no clear evidence of a real association between the following predictor variables and `crim`: <br />
+
+`rm` = 54.38% <br />
+`lstat` = 37.05% <br />
+`chas`= 28.13% <br />
+`indus` = 17.44% <br />
+`age` = 6.96% <br />
+
+In other words, for these predictors we cannot reject the null hypothesis. <br />
+
+
+For a p-value cutoff of **5%** there is some evidence of a real association between <br />
+`black` = 3.85%,
+`zn` = 1.78%, 
+`tax` = 1.71%,
+`medv` = 1.25% and `crim`. <br />
+
+Therefore, `black`, `zn`, `tax`, and `medv` appear to be statistically significant at a p-value of 0.05 and we can reject the null hypothesis. <br />
+
+
+Finally, for a p-value cutoff of **1%** there is some evidence of a real association between <br />
+`ptratio` = 0.25%,
+`dis` = 0.15%,
+`rad` = 0.002%,
+`nox` = 5.37e-09% and `crim`. <br />
+
+Thus, `ptratio`, `dis`, `rad` and `nox` appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.1 <- predict(LR.fit.1, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.1[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.1 <- ifelse(LR.prob.1 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, LR.pred.1, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.1 <- mean(LR.pred.1!=Boston$crim2); MC.LR.1
+
+# Compute fraction of correct predictions
+mean(LR.pred.1==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+19/(234+19)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+229/(24+229)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+229/(19+229)
+
+# Compute Neg. Pred. value 
+234/(234+24)
+```
+
+**Interpretation (Confusion matrix)** <br />
+The diagonal elements of the confusion matrix indicate correct predictions, while the off-diagonals represent incorrect predictions. Hence, our model correctly predicted that a given suburb has a crime rate above the median 229 times and that a given suburb has a crime rate below the median 234 times, for a total of 229 + 234 = 463 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **91.50%** of the time. Consequently, the **training error rate**, or the misclassification rate, equals to 100% − 91.50% = **8.5%**. <br />
+
+At first glance, it seems that the logistic regression model is working significantly better than random guessing. However, this result is misleading because we trained and tested the model on the same set of 506 observations. In other words, the training error rate is considered overly optimistic and tends to underestimate the test error rate. <br />
+
+In order to better assess the accuracy of the logistic regression model, we have to fit the model using part of the data (training data), and then examine how well it predicts the held out data (testing data). This yields a more realistic error rate and will be covered below. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 19/(234+19) = 7.51% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 229/(24+229) = 90.51% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 229/(19+229) = 92.34% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 234/(234+24) = 90.70% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.1 <- ifelse(LR.pred.1 == "Above", 1, 0)
+Resp.roc <- ifelse(Boston$crim2 == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.1 <- roc(Resp.roc, LR.pred.roc.1)
+
+# Plot ROC Curve
+plot(LR.roc.1, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The **ROC curve** simultaneously displays two types of errors for all possible thresholds. The Figure above shows the ROC curve for the Logistic classifier on the training data. The overall performance of a classifier, summarized over all possible thresholds, is given by the **A**rea **U**nder the ROC-**C**urve (**AUC**). An ideal ROC curve will pass through the upper left corner, and therefore the larger the AUC the better the classifier. For our training data the **AUC is 0.92**. We expect a classifier that performs no better than chance to have an AUC of 0.5 (when evaluated on an independent test set not used in model training). <br />
+
+As it can be observed from the figure above, varying the classifier threshold changes its true positive (**sensitivity**) and false positive (**1-specificity**) rate.
+
+
+## Logistic regression - Model 2
+
+```{r}
+# Fit a logistic regression model using `black`, `tax`, `zn`, `medv`, `ptratio`, `dis`, `rad` and `nox`
+LR.fit.2 <- glm(Boston$crim2 ~ black + tax + zn + medv + ptratio + dis + rad + nox,
+            data = Boston, family = binomial)
+
+# Show summary of logistic regression model
+summary(LR.fit.2)
+
+# Show summary of coefficients 
+summary(LR.fit.2)$coef
+
+# Show coefficients
+coef(LR.fit.2)
+
+# Show p-values
+summary(LR.fit.2)$coef[,4]
+```
+
+**Interpretation** <br />
+
+For a p-value cutoff of **5%** there is some evidence of a real association between the following predictor variables and `crim`: <br />
+`black` = 3.32% <br />
+`zn` = 1.29% <br />
+`dis` = 1.20% <br />
+`ptratio` = 1.12% <br />
+
+Therefore, `black`, `zn`, `dis` and `ptratio` appear to be statistically significant at a p-value of 0.05 and we can reject the null hypothesis. <br />
+
+
+For a p-value cutoff of **1%** there is some evidence of a real association between the following predictor variables and `crim`: <br />
+`medv` = 0.43% <br />
+`tax` = 0.22% <br />
+`rad` = 5.14e-05% <br />
+`nox` = 2.15e-10% <br />
+
+Thus, `medv`, `tax`, `rad` and `nox` appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.2 <- predict(LR.fit.2, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.2[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.2 <- ifelse(LR.prob.2 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, LR.pred.2, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.2 <- mean(LR.pred.2!=Boston$crim2); MC.LR.2
+
+# Compute fraction of correct predictions
+mean(LR.pred.2==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+24/(229+24)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+223/(30+223)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+223/(24+223)
+
+# Compute Neg. Pred. value 
+229/(229+30)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 223 times and that a given suburb has a crime rate below the median 229 times, for a total of 223 + 229 = 452 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **89.33%** of the time. Consequently, the **training error rate** equals to 100% − 89.33% = **10.67%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 24/(229+24) = 9.49% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 223/(30+223) = 88.14% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 223/(24+223) = 90.28% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 229/(229+30) = 88.42% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.2 <- ifelse(LR.pred.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.2 <- roc(Resp.roc, LR.pred.roc.2)
+
+# Plot ROC Curve
+plot(LR.roc.2, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Logistic classifier on the training data. For our data the **AUC is 0.89**, which appears promising. 
+
+
+## Logistic regression - Model 3
+
+```{r}
+# Fit a logistic regression model using `ptratio`, `dis`, `rad` and `nox`
+LR.fit.3 <- glm(Boston$crim2 ~ ptratio + dis + rad + nox,
+            data = Boston, family = binomial)
+
+# Show summary of logistic regression model
+summary(LR.fit.3)
+
+# Show summary of coefficients 
+summary(LR.fit.3)$coef
+
+# Show coefficients
+coef(LR.fit.3)
+
+# Show p-values
+summary(LR.fit.3)$coef[,4]
+```
+
+**Interpretation** <br />
+
+There is no clear evidence of a real association between <br />
+
+`dis` = 22.41%,
+`ptratio` = 9.69% and `crim`. <br />
+
+Therefore, `dis` and `ptratio` appear to *not* be statistically significant at a p-value of 0.05 and we are unable to reject the null hypothesis (though we cannot conclude that the null hypothesis is true either). <br />
+
+For a p-value cutoff of **1%** there is some evidence of a real association between <br />
+
+`rad` = 1.98e-05%, 
+`nox` = 1.33e-09% and `crim`. <br />
+
+Thus, `rad` and `nox` appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.3 <- predict(LR.fit.3, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.3[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.3 <- ifelse(LR.prob.3 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, LR.pred.3, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.3 <- mean(LR.pred.3!=Boston$crim2); MC.LR.3
+
+# Compute fraction of correct predictions
+mean(LR.pred.3==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+20/(233+20)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+209/(44+209)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+209/(20+209)
+
+# Compute Neg. Pred. value 
+233/(233+44)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 209 times and that a given suburb has a crime rate below the median 233 times, for a total of 209 + 233 = 442 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **87.35%** of the time. Consequently, the **training error rate** equals to 100% − 87.35% = **12.65%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 20/(233+20) = 7.91% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 209/(44+209) = 82.61% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 209/(20+209) = 91.27% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 233/(233+44) = 84.12% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.3 <- ifelse(LR.pred.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.3 <- roc(Resp.roc, LR.pred.roc.3)
+
+# Plot ROC Curve
+plot(LR.roc.3, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Logistic classifier on the training data. For our data the **AUC is 0.87**, which appears promising. 
+
+
+b.  kNN
+
+## KNN - Model 1
+
+```{r}
+# Scale Data 
+Std.data <- as.data.frame(scale(Boston[,2:14]))
+
+# Set Seed
+set.seed(1)
+
+# Fit a knn model using all the data 
+KNN.fit.1 <- knn(Std.data, Std.data, Boston$crim2, k = 2)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, KNN.fit.1, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.1 <- mean(KNN.fit.1 != Boston$crim2); MC.KNN.1
+
+# Compute fraction of correct predictions
+mean(KNN.fit.1==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+14/(239+14)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+241/(12+241)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+241/(14+241)
+
+# Compute Neg. Pred. value 
+239/(239+12)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 241 times and that a given suburb has a crime rate below the median 239 times, for a total of 241 + 239 = 480 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **94.86%** of the time. Consequently, the **training error rate** equals to 100% − 94.86% = **5.14%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 14/(239+14) = 5.53% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 241/(12+241) = 95.26% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 241/(14+241) = 94.51% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 239/(239+12) = 95.22% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.1 <- ifelse(KNN.fit.1 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.1 <- roc(Resp.roc, KNN.pred.roc.1)
+
+# Plot ROC Curve
+plot(KNN.roc.1, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the training data. For our data the **AUC is 0.95**, which appears promising. 
+
+
+## KNN - Model 2
+
+```{r}
+# Set Seed
+set.seed (2)
+
+# Fit a knn model using all the data 
+KNN.fit.2 <- knn(Std.data, Std.data, Boston$crim2, k = 5)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, KNN.fit.2, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.2 <- mean(KNN.fit.2 != Boston$crim2); MC.KNN.2
+
+# Compute fraction of correct predictions
+mean(KNN.fit.2==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+6/(247+6)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+236/(17+236)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+236/(6+236)
+
+# Compute Neg. Pred. value 
+247/(247+17)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 236 times and that a given suburb has a crime rate below the median 247 times, for a total of 236 + 247 = 483 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **95.45%** of the time. Consequently, the **training error rate** equals to 100% − 95.45% = **4.55%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 6/(247+6) = 2.37% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 236/(17+236) = 93.28% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 236/(6+236) = 97.52% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 247/(247+17) = 93.56% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.2 <- ifelse(KNN.fit.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.2 <- roc(Resp.roc, KNN.pred.roc.2)
+
+# Plot ROC Curve
+plot(KNN.roc.2, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the training data. For our data the **AUC is 0.95**, which appears promising. 
+
+
+## KNN - Model 3
+
+```{r}
+# Set Seed
+set.seed (3)
+
+# Fit a knn model using all the data 
+KNN.fit.3 <- knn(Std.data, Std.data, Boston$crim2, k = 10)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, KNN.fit.3, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.3 <- mean(KNN.fit.3 != Boston$crim2); MC.KNN.3
+
+# Compute fraction of correct predictions
+mean(KNN.fit.3==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+11/(242+11)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+228/(25+228)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+228/(11+228)
+
+# Compute Neg. Pred. value 
+242/(242+25)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 228 times and that a given suburb has a crime rate below the median 242 times, for a total of 228 + 242 = 470 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **92.89%** of the time. Consequently, the **training error rate** equals to 100% − 92.89% = **7.11%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 11/(242+11) = 4.35% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 228/(25+228) = 90.12% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 228/(11+228) = 95.40% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 242/(242+25) = 90.64% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.3 <- ifelse(KNN.fit.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.3 <- roc(Resp.roc, KNN.pred.roc.3)
+
+# Plot ROC Curve
+plot(KNN.roc.3, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the training data. For our data the **AUC is 0.93**, which appears promising. 
+
+
+c. Naive Bayes 
+
+## Naive Bayes - Model 1
+
+```{r}
+# Fit a Naive Bayes model using all the data 
+Bayes.fit.1 <- naiveBayes(Boston$crim2 ~ . - crim, data = Boston)
+```
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.1 <- predict(Bayes.fit.1, Boston)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, Bayes.pred.1, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.1 <- mean(Bayes.pred.1 != Boston$crim2); MC.Bayes.1
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.1==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+10/(243+10)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+234/(19+234)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+234/(10+234)
+
+# Compute Neg. Pred. value 
+243/(243+19)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 234 times and that a given suburb has a crime rate below the median 243 times, for a total of 234 + 243 = 477 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **94.27%** of the time. Consequently, the **training error rate** equals to 100% − 94.27% = **5.73%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 10/(243+10) = 3.95% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 234/(19+234) = 92.49% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 234/(10+234) = 95.90% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 243/(243+19) = 92.75% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.1 <- ifelse(Bayes.pred.1 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.1 <- roc(Resp.roc, Bayes.pred.roc.1)
+
+# Plot ROC Curve
+plot(Bayes.roc.1, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the training data. For our data the **AUC is 0.94**, which appears promising. 
+
+
+## Naive Bayes - Model 2
+
+```{r}
+# Fit a Naive Bayes model using `black`, `tax`, `zn`, `medv`, `ptratio`, `dis`, `rad` and `nox`
+Bayes.fit.2 <- naiveBayes(Boston$crim2 ~ black + tax + zn + medv + ptratio + dis + rad + nox, data = Boston)
+```
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.2 <- predict(Bayes.fit.2, Boston)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, Bayes.pred.2, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.2 <- mean(Bayes.pred.2 != Boston$crim2); MC.Bayes.2
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.2==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+22/(231+22)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+186/(67+186)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+186/(22+186)
+
+# Compute Neg. Pred. value 
+231/(231+67)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 186 times and that a given suburb has a crime rate below the median 231 times, for a total of 186 + 231 = 417 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **82.41%** of the time. Consequently, the **training error rate** equals to 100% − 82.41% = **17.59%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 22/(231+22) = 8.70% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 186/(67+186) = 73.52% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 186/(22+186) = 89.42% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 231/(231+67) = 77.52% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.2 <- ifelse(Bayes.pred.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.2 <- roc(Resp.roc, Bayes.pred.roc.2)
+
+# Plot ROC Curve
+plot(Bayes.roc.2, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the training data. For our data the **AUC is 0.82**, which appears promising. 
+
+
+## Naive Bayes - Model 3
+
+```{r}
+# Fit a Naive Bayes model using `ptratio`, `dis`, `rad` and `nox`
+Bayes.fit.3 <- naiveBayes(Boston$crim2 ~ ptratio + dis + rad + nox, data = Boston)
+```
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.3 <- predict(Bayes.fit.3, Boston)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Boston$crim2, Bayes.pred.3, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.3 <- mean(Bayes.pred.3 != Boston$crim2); MC.Bayes.3
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.3==Boston$crim2)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+22/(231+22)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+195/(58+195)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+195/(22+195)
+
+# Compute Neg. Pred. value 
+231/(231+58)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 195 times and that a given suburb has a crime rate below the median 231 times, for a total of 195 + 231 = 426 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **84.19%** of the time. Consequently, the **training error rate** equals to 100% − 84.19% = **15.81%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 22/(231+22) = 8.70% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 195/(58+195) = 77.08% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 195/(22+195) = 89.86% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 231/(231+58) = 79.93% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.3 <- ifelse(Bayes.pred.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.3 <- roc(Resp.roc, Bayes.pred.roc.3)
+
+# Plot ROC Curve
+plot(Bayes.roc.3, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the training data. For our data the **AUC is 0.84**, which appears promising. 
+
+## II. With Splitting data into training and testing data
+
+# Splitted Data
+```{r}
+# Set seed
+set.seed(1)
+
+# Generate training data
+Training <- sample(1:nrow(Boston), nrow(Boston)/2)
+Training.data <- Boston[Training,]
+
+# Show dimensions
+dim(Training.data)
+
+# Generate testing data
+Testing.data <- Boston[-Training,]
+
+# Show dimensions
+dim(Testing.data)
+
+# Generate testing data for response variable
+Testing.response <- Boston$crim2[-Training]
+
+# Show dimensions
+length(Testing.response)
+
+# Generate training data for response variable
+Training.response <- Boston$crim2[Training]
+
+# Show dimensions
+length(Training.response)
+```
+
+
+a.  logistic regression
+
+## Logistic regression - Model 1 / training and testing data
+
+```{r}
+# Fit a logistic regression model using training data
+LR.fit.split.1 <- glm(crim2 ~.-crim, 
+                  data = Training.data, family = "binomial")
+
+# Show summary of logistic regression model
+summary(LR.fit.split.1)
+
+# Show summary of coefficients 
+summary(LR.fit.split.1)$coef
+
+# Show coefficients
+coef(LR.fit.split.1)
+
+# Show p-values
+summary(LR.fit.split.1)$coef[,4]
+```
+
+**Interpretation** <br />
+
+There is no clear evidence of a real association between the following predictor variables and `crim`: <br />
+`chas`= 98.98% <br />
+`rm` = 74.60% <br />
+`black` = 43.43% <br />
+`lstat` = 39.02% <br />
+`zn` = 26.78% <br />
+`indus` = 26.72% <br />
+`medv` = 18.64% <br />
+`ptratio` = 7.89% <br />
+`tax` = 7.44% <br />
+
+In other words, for these predictors we cannot reject the null hypothesis. <br />
+
+
+For a p-value cutoff of **5%** there is some evidence of a real association between <br />
+`age` = 2.11%, 
+`rad` = 2.00%,
+`dis` = 1.77% and `crim`.  <br />
+
+Therefore, `age`, `rad` and `dis` appear to be statistically significant at a p-value of 0.05 and we can reject the null hypothesis. <br />
+
+
+Finally, for a p-value cutoff of **1%** there is some evidence of a real association between <br />
+
+`nox` = 0.001% and `crim`. <br />
+
+Thus, `nox` appears to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.split.1 <- predict(LR.fit.split.1, Testing.data, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.split.1[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.split.1 <- ifelse(LR.prob.split.1 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, LR.pred.split.1, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.split.1 <- mean(LR.pred.split.1!=Testing.response); MC.LR.split.1
+
+# Compute fraction of correct predictions
+mean(LR.pred.split.1==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+13/(113+13)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+109/(18+109)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+109/(13+109)
+
+# Compute Neg. Pred. value 
+113/(113+18)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 109 times and that a given suburb has a crime rate below the median 113 times, for a total of 109 + 113 = 222 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **87.75%** of the time. Consequently, the **testing error rate** equals to 100% − 87.75% = **12.25%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 13/(113+13) = 10.32% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 109/(18+109) = 85.83% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 109/(13+109) = 89.34% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 113/(113+18) = 86.26% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.split.1 <- ifelse(LR.pred.split.1 == "Above", 1, 0)
+Resp.roc.split <- ifelse(Testing.response == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.split.1 <- roc(Resp.roc.split, LR.pred.roc.split.1)
+
+# Plot ROC Curve
+plot(LR.roc.split.1, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.split.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Logistic classifier on the testing data. For our data the **AUC is 0.88**, which appears promising. 
+
+
+## Logistic regression - Model 2 / training and testing data
+
+```{r}
+# Fit a logistic regression model using `age`, `rad`, `dis` and `nox`
+LR.fit.split.2 <- glm(crim2 ~ age + rad + dis + nox, 
+                  data = Training.data, family = "binomial")
+
+# Show summary of logistic regression model
+summary(LR.fit.split.2)
+
+# Show summary of coefficients 
+summary(LR.fit.split.2)$coef
+
+# Show coefficients
+coef(LR.fit.split.2)
+
+# Show p-values
+summary(LR.fit.split.2)$coef[,4]
+```
+
+**Interpretation** <br />
+
+There is no clear evidence of a real association between <br />
+
+`dis` = 11.47% and `crim`.
+
+
+For a p-value cutoff of **5%** there is some evidence of a real association between <br />
+`age` = 1.06% and `crim`.  <br />
+
+Therefore, `age` appears to be statistically significant at a p-value of 0.05 and we can reject the null hypothesis. <br />
+
+
+Finally, for a p-value cutoff of **1%** there is some evidence of a real association between <br />
+
+`rad` = 0.89%,
+`nox` = 0.01% and `crim`. <br />
+
+Thus, `rad` and `nox` appear to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.split.2 <- predict(LR.fit.split.2, Testing.data, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.split.2[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.split.2 <- ifelse(LR.prob.split.2 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, LR.pred.split.2, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.split.2 <- mean(LR.pred.split.2!=Testing.response); MC.LR.split.2
+
+# Compute fraction of correct predictions
+mean(LR.pred.split.2==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+17/(109+17)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+101/(26+101)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+101/(17+101)
+
+# Compute Neg. Pred. value 
+109/(109+26)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 101 times and that a given suburb has a crime rate below the median 109 times, for a total of 101 + 109 = 210 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **83.00%** of the time. Consequently, the **testing error rate** equals to 100% − 83.00% = **17.00%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 17/(109+17) = 13.49% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 101/(26+101) = 79.53% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 101/(17+101) = 85.59% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 109/(109+26) = 80.74% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.split.2 <- ifelse(LR.pred.split.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.split.2 <- roc(Resp.roc.split, LR.pred.roc.split.2)
+
+# Plot ROC Curve
+plot(LR.roc.split.2, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.split.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Logistic classifier on the testing data. For our data the **AUC is 0.83**, which appears promising. 
+
+
+## Logistic regression - Model 3 / training and testing data
+
+```{r}
+# Fit a logistic regression model using only `nox`
+LR.fit.split.3 <- glm(crim2 ~ nox, 
+                  data = Training.data, family = "binomial")
+
+# Show summary of logistic regression model
+summary(LR.fit.split.3)
+
+# Show summary of coefficients 
+summary(LR.fit.split.3)$coef
+
+# Show coefficients
+coef(LR.fit.split.3)
+
+# Show p-values
+summary(LR.fit.split.3)$coef[,4]
+```
+
+**Interpretation** <br />
+
+For a p-value cutoff of **1%** there is some evidence of a real association between <br />
+
+`nox` = 2.45e-12% and `crim`. <br />
+
+Thus, `nox` appears to be statistically significant at a p-value of 0.01 and we can reject the null hypothesis. <br />
+
+
+# Predict
+
+```{r}
+# Use the fitted model to perform predictions
+LR.prob.split.3 <- predict(LR.fit.split.3, Testing.data, type = "response")
+
+# Print the first ten probabilities
+print(LR.prob.split.3[1:10])
+```
+
+
+# Convert probabilities into class labels
+
+```{r}
+LR.pred.split.3 <- ifelse(LR.prob.split.3 > 0.5, "Above", "Below")
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, LR.pred.split.3, dnn = c("True Class", "Predicted Class"))[,c("Below", "Above")]
+
+# Compute misclassification rate
+MC.LR.split.3 <- mean(LR.pred.split.3!=Testing.response); MC.LR.split.3
+
+# Compute fraction of correct predictions
+mean(LR.pred.split.3==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+19/(107+19)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+95/(32+95)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+95/(19+95)
+
+# Compute Neg. Pred. value 
+107/(107+32)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 95 times and that a given suburb has a crime rate below the median 107 times, for a total of 95 + 107 = 202 correct predictions. In this case, logistic regression **correctly predicted** the crime rate criterion **79.84%** of the time. Consequently, the **testing error rate** equals to 100% − 79.84% = **20.16%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 19/(107+19) = 15.08% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 95/(32+95) = 74.80% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 95/(19+95) = 83.33% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 107/(107+32) = 76.98% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+LR.pred.roc.split.3 <- ifelse(LR.pred.split.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+LR.roc.split.3 <- roc(Resp.roc.split, LR.pred.roc.split.3)
+
+# Plot ROC Curve
+plot(LR.roc.split.3, legacy.axes=TRUE)
+
+# Compute AUC
+auc(LR.roc.split.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Logistic classifier on the testing data. For our data the **AUC is 0.80**, which appears promising. 
+
+
+# Scale data
+
+```{r}
+#~ Split the scaled data into training and testing data
+# Generate training data
+Std.training.data <- Std.data[Training,]
+
+# Show dimensions
+dim(Std.training.data)
+
+# Generate testing data
+Std.testing.data <- Std.data[-Training,]
+
+# Show dimensions
+dim(Std.testing.data)
+```
+
+
+b. Naive Bayes 
+
+## KNN - Model 1 / training and testing data
+
+```{r}
+# Set Seed
+set.seed (1)
+
+# Fit a knn model using training data 
+KNN.fit.split.1 <- knn(Std.training.data, Std.testing.data, Training.response, k=2)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, KNN.fit.split.1, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.split.1 <- mean(KNN.fit.split.1 != Testing.response); MC.KNN.split.1
+
+# Compute fraction of correct predictions
+mean(KNN.fit.split.1==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+10/(116+10)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+106/(21+106)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+106/(10+106)
+
+# Compute Neg. Pred. value 
+116/(116+21)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 106 times and that a given suburb has a crime rate below the median 116 times, for a total of 106 + 116 = 222 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **87.75%** of the time. Consequently, the **training error rate** equals to 100% − 87.75% = **12.25%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 10/(116+10) = 7.94% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 106/(21+106) = 83.46% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 106/(10+106) = 91.38% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 116/(116+21) = 84.67% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.split.1 <- ifelse(KNN.fit.split.1 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.split.1 <- roc(Resp.roc.split, KNN.pred.roc.split.1)
+
+# Plot ROC Curve
+plot(KNN.roc.split.1, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.split.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the testing data. For our data the **AUC is 0.88**, which appears promising. 
+
+
+## KNN - Model 2 / training and testing data
+
+```{r}
+# Set Seed
+set.seed (1)
+
+# Fit a knn model using training data 
+KNN.fit.split.2 <- knn(Std.training.data, Std.testing.data, Training.response, k=5)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, KNN.fit.split.2, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.split.2 <- mean(KNN.fit.split.2 != Testing.response); MC.KNN.split.2
+
+# Compute fraction of correct predictions
+mean(KNN.fit.split.2==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+16/(110+16)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+105/(22+105)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+105/(16+105)
+
+# Compute Neg. Pred. value 
+110/(110+22)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 105 times and that a given suburb has a crime rate below the median 110 times, for a total of 105 + 110 = 215 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **84.98%** of the time. Consequently, the **training error rate** equals to 100% − 84.98% = **15.02%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 16/(110+16) = 12.70% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 105/(22+105) = 82.68% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 105/(16+105) = 86.78% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 110/(110+22) = 83.33% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.split.2 <- ifelse(KNN.fit.split.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.split.2 <- roc(Resp.roc.split, KNN.pred.roc.split.2)
+
+# Plot ROC Curve
+plot(KNN.roc.split.2, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.split.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the testing data. For our data the **AUC is 0.85**, which appears promising. 
+
+
+## KNN - Model 3 / training and testing data
+
+```{r}
+# Set Seed
+set.seed(1)
+
+# Fit a knn model using training data 
+KNN.fit.split.3 <- knn(Std.training.data, Std.testing.data, Training.response, k=10)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, KNN.fit.split.3, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.KNN.split.3 <- mean(KNN.fit.split.3 != Testing.response); MC.KNN.split.3
+
+# Compute fraction of correct predictions
+mean(KNN.fit.split.3==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+18/(108+18)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+97/(30+97)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+97/(18+97)
+
+# Compute Neg. Pred. value 
+108/(108+30)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 97 times and that a given suburb has a crime rate below the median 108 times, for a total of 97 + 108 = 205 correct predictions. In this case, KNN **correctly predicted** the crime rate criterion **81.03%** of the time. Consequently, the **training error rate** equals to 100% − 81.03% = **18.97%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 18/(108+18) = 14.29% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 97/(30+97) = 76.38% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 97/(18+97) = 84.35% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 108/(108+30) = 78.26% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+KNN.pred.roc.split.3 <- ifelse(KNN.fit.split.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+KNN.roc.split.3 <- roc(Resp.roc.split, KNN.pred.roc.split.3)
+
+# Plot ROC Curve
+plot(KNN.roc.split.3, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(KNN.roc.split.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the KNN classifier on the testing data. For our data the **AUC is 0.81**, which appears promising.
+
+
+c. Naive Bayes 
+
+## Naive Bayes - Model 1 / training and testing data
+
+```{r}
+# Fit a Naive Bayes model using training data 
+Bayes.fit.split.1 <- naiveBayes(crim2 ~ . - crim, data = Training.data)
+```
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.split.1 <- predict(Bayes.fit.split.1, Testing.data)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, Bayes.pred.split.1, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.split.1 <- mean(Bayes.pred.split.1 != Testing.response); MC.Bayes.split.1
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.split.1==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+8/(118+8)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+115/(12+115)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+115/(8+115)
+
+# Compute Neg. Pred. value 
+118/(118+12)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 115 times and that a given suburb has a crime rate below the median 118 times, for a total of 115 + 118 = 233 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **92.09%** of the time. Consequently, the **training error rate** equals to 100% − 92.09% = **7.91%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 8/(118+8) = 6.35% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 115/(12+115) = 90.55% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 115/(8+115) = 93.50% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 118/(118+12) = 90.77% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.split.1 <- ifelse(Bayes.pred.split.1 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.split.1 <- roc(Resp.roc.split, Bayes.pred.roc.split.1)
+
+# Plot ROC Curve
+plot(Bayes.roc.split.1, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.split.1)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the testing data. For our data the **AUC is 0.92**, which appears promising. 
+
+
+## Naive Bayes - Model 2 / training and testing data
+
+```{r}
+# Fit a Naive Bayes model using `age`, `rad`, `dis` and `nox`
+Bayes.fit.split.2 <- naiveBayes(crim2 ~ age + rad + dis + nox, data = Training.data)
+```
+
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.split.2 <- predict(Bayes.fit.split.2, Testing.data)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, Bayes.pred.split.2, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.split.2 <- mean(Bayes.pred.split.2 != Testing.response); MC.Bayes.split.2
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.split.2==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+18/(108+18)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+99/(28+99)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+99/(18+99)
+
+# Compute Neg. Pred. value 
+108/(108+28)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 99 times and that a given suburb has a crime rate below the median 108 times, for a total of 99 + 108 = 207 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **81.82%** of the time. Consequently, the **training error rate** equals to 100% − 81.82% = **18.18%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 18/(108+18) = 14.29% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 99/(28+99) = 77.95% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 99/(18+99) = 84.62% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 108/(108+28) = 79.41% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.split.2 <- ifelse(Bayes.pred.split.2 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.split.2 <- roc(Resp.roc.split, Bayes.pred.roc.split.2)
+
+# Plot ROC Curve
+plot(Bayes.roc.split.2, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.split.2)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the testing data. For our data the **AUC is 0.82**, which appears promising. 
+
+
+## Naive Bayes - Model 3 / training and testing data
+
+```{r}
+# Fit a Naive Bayes model using only `nox`
+Bayes.fit.split.3 <- naiveBayes(crim2 ~ nox, data = Training.data)
+```
+
+# Predict 
+
+```{r}
+# Use the fitted model to perform predictions
+Bayes.pred.split.3 <- predict(Bayes.fit.split.3, Testing.data)
+```
+
+
+# Confustion matrix 
+
+```{r}
+# Create a confustion matrix 
+table(Testing.response, Bayes.pred.split.3, dnn = c("True Class", "Predicted Class"))
+
+# Compute misclassification rate
+MC.Bayes.split.3 <- mean(Bayes.pred.split.3 != Testing.response); MC.Bayes.split.3
+
+# Compute fraction of correct predictions
+mean(Bayes.pred.split.3==Testing.response)
+
+# Compute False Pos. rate (Type I error, 1-Specificity)
+15/(111+15)
+
+# Compute True Pos. rate (1-Type II error, power, sensitivity, recall)
+91/(36+91)
+
+# Compute Pos. Pred. value (Precision, 1-false discovery proportion)
+91/(15+91)
+
+# Compute Neg. Pred. value 
+111/(111+36)
+```
+
+**Interpretation (Confusion matrix)** <br />
+Our model correctly predicted that a given suburb has a crime rate above the median 91 times and that a given suburb has a crime rate below the median 111 times, for a total of 91 + 111 = 202 correct predictions. In this case, Naive Bayes **correctly predicted** the crime rate criterion **79.84%** of the time. Consequently, the **training error rate** equals to 100% − 79.84% = **20.16%**. <br />
+
+
+<u> Other key measures for classification testing: </u> <br />
+
+**False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? <br />
+FP/N = 15/(111+15) = 11.90% <br />
+
+**True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? <br />
+TP/P yes = 91/(36+91) = 71.65% <br />
+
+**Pos. Pred. value (Precision, 1-false discovery proportion):** When it predicts Up, how often is it correct? <br />
+TP/P* = 91/(15+91) = 85.85% <br />
+
+**Neg Pred. value:** When it predicts Down, how often is it correct? <br />
+TN/N*= 111/(111+36) = 75.51% <br />
+
+
+# ROC Curve
+
+```{r}
+# Convert into binary classes
+Bayes.pred.roc.split.3 <- ifelse(Bayes.pred.split.3 == "Above", 1, 0)
+
+# Compute ROC Curve
+Bayes.roc.split.3 <- roc(Resp.roc.split, Bayes.pred.roc.split.3)
+
+# Plot ROC Curve
+plot(Bayes.roc.split.3, legacy.axes=TRUE)
+
+# Compute the AUC
+auc(Bayes.roc.split.3)
+```
+
+**Interpretation (ROC curve)** <br />
+The Figure above displays the **ROC curve** for the Naive Bayes classifier on the testing data. For our data the **AUC is 0.80**, which appears promising. 
+
+
+## Misclassification rate - Summary / training and testing data
+
+```{r}
+# Gather Error rates
+MC.erros <- as.data.frame(cbind(c(MC.LR.split.1, MC.LR.split.2, MC.LR.split.3), c(MC.KNN.split.1, MC.KNN.split.2, MC.KNN.split.3), c(MC.Bayes.split.1, MC.Bayes.split.2, MC.Bayes.split.3)))
+colnames(MC.erros) <- c("LR", "KNN", "Bayes")
+
+# Plot Error rates
+MC.erros %>% gather %>% head(3)
+MC.erros %>% 
+  gather %>% 
+  ggplot(aes(key, value)) + 
+  geom_boxplot() +
+  xlab("") + 
+  ylab("Error rates") 
+```
+
+**Observations (Misclassification rate)** <br />
+In terms of the misclassification rate, KNN was very slightly superior to the other approaches. KNN, as a non-parametric model, has low bias, can capture more complicated decision boundaries and is therefore more flexible. <br />
+
+
+## ROC-Curves - Summary / training and testing data
+
+```{r}
+# Find best LR ROC-Curve
+LR.max.auc <- max(LR.roc.split.1$auc, LR.roc.split.2$auc, LR.roc.split.3$auc)           
+LR.max.curve <- if (LR.max.auc==LR.roc.split.1$auc) {
+    LR.roc.split.1
+} else if (LR.max.auc==LR.roc.split.2$auc) {
+    LR.roc.split.2
+} else if (LR.max.auc==LR.roc.split.3$auc) {
+    LR.roc.split.3
+}
+
+# Find best KNN ROC-Curve
+KNN.max.auc <- max(KNN.roc.split.1$auc, KNN.roc.split.2$auc, KNN.roc.split.3$auc)    
+KNN.max.curve <- if (KNN.max.auc==KNN.roc.split.1$auc) {
+    KNN.roc.split.1
+} else if (KNN.max.auc==KNN.roc.split.2$auc) {
+    KNN.roc.split.2
+} else if (KNN.max.auc==KNN.roc.split.3$auc) {
+    KNN.roc.split.3
+}
+
+# Find best Bayes ROC-Curve
+Bayes.max.auc <- max(Bayes.roc.split.1$auc, Bayes.roc.split.2$auc, Bayes.roc.split.3$auc)    
+Bayes.max.curve <- if (Bayes.max.auc==Bayes.roc.split.1$auc) {
+    Bayes.roc.split.1
+} else if (Bayes.max.auc==Bayes.roc.split.2$auc) {
+    Bayes.roc.split.2
+} else if (Bayes.max.auc==Bayes.roc.split.3$auc) {
+    Bayes.roc..split.3
+}
+
+# Gather classification measures  
+Roc.summary <- matrix(c("AUC", "1-Specificity", "sensitivity", "0.88", "10.32%", "85.83%", "0.88", "7.94%", "83.46%", "0.92", "6.35%",  "90.55%"), nrow = 3, ncol = 4) 
+colnames(Roc.summary) <- c("Measure", "LR", "KNN", "Bayes")
+```
+
+
+**Observations (ROC-Curves)** <br />
+The figure above depicts the best ROC-Curve for each method (LR, KNN and Naive Bayes) <br />
+
+Recall that: <br />
+- ROC Curves show the tradeoff between sensitivity and specificity (any increase in sensitivity will be accompanied by a decrease in specificity) <br />
+- The closer the curve follows the left-hand border, the more accurate the model <br />
+- The closer the curve comes to the 45-degree diagonal of the ROC space, the less accurate the model <br />
+- The area under the curve is a measure of the usefulness of a model <br />
+- **False Pos. rate (Type I error, 1-Specificity):** When it is actually Down, how often does it predict Up? --> FP/N <br />
+- **True Pos. rate (1-Type II error, power, sensitivity, recall):** When it is actually Up, how often does it predict Up? --> TP/P <br />
+
+The classification measures for our models with the highest AUC can be summarized as follows: <br />
+
+```{r}
+# Produce table
+kable(Roc.summary, 
+      caption="Decision Matrix", 
+      align = c("c", "r"))
+```
+
+
+### Question 4
+
+Using `quanteda`, construct an English language dictionary for "populism" for English, using the word patterns found in Appendix B of [Rooduijn, Matthijs, and Teun Pauwels. 2011. "Measuring Populism: Comparing Two Methods of Content Analysis."  *West European Politics* 34(6): 1272–83.](Exam/Populism_2011.pdf)
+
+Use this dictionary to measure the relative amount of populism, as a total of all words in, the `data_corpus_irishbudget2010` when these are grouped by political party. Hint: You will need to make two dfm objects, one for all words, and one for the dictionary, and get a proportion. Plot the proportions by party using a dotchart.
+
+
+# Dictionary
+
+```{r}
+# Create a dictionary
+dict <- dictionary(list(Core = list(c("elit*", "consensus*", "undemocratic*", "referend*", "corrupt*", "propagand*", "politici*", "*deceit*", "*deceiv*", "*betray*", "shame*", "scandal*", "truth*", "dishonest*")), Context = list(c("establishm*"), "ruling*")))
+```
+
+
+# Overview
+
+```{r}
+# Show head of corpus
+head(docvars(data_corpus_irishbudget2010))
+
+# Show summary of corpus
+summary(data_corpus_irishbudget2010)
+
+# Show document names
+docnames(data_corpus_irishbudget2010)
+
+# Show number of documents 
+ndoc(data_corpus_irishbudget2010)
+```
+
+
+# DFM all words
+
+```{r}
+# Construct a token object
+token.all <- tokens(data_corpus_irishbudget2010, remove_numbers = TRUE, remove_punct = TRUE, remove_symbols = TRUE, remove_separators = TRUE, remove_twitter = TRUE, remove_hyphens = FALSE, remove_url = TRUE)
+
+# Construct a dfm object
+dfm.all <- dfm(token.all, stem = F, groups = "party")
+
+# Show dimensions
+dim(dfm.all)
+
+# Show number of documents 
+ndoc(dfm.all)
+
+# Show document names
+docnames(dfm.all)
+
+# Show number of features 
+nfeat(dfm.all)
+
+# Show feature names
+head(featnames(dfm.all), n = 50)
+
+# Show top features
+topfeatures(dfm.all, n = 10)
+
+# Show most frequent words
+textstat_frequency(dfm.all, n = 5)
+
+# Create a textplot
+textplot_wordcloud(dfm.all)
+
+# Look up dictionary
+dfm_lookup(dfm.all, dict, levels = 1:2)
+```
+
+
+# DFM dictionary
+
+```{r}
+# Construct a token object
+token.dic <- tokens(data_corpus_irishbudget2010, remove_numbers = TRUE, remove_punct = TRUE, remove_symbols = TRUE, remove_separators = TRUE, remove_twitter = TRUE, remove_hyphens = FALSE, remove_url = TRUE)
+
+# Construct a dfm object
+dfm.dic <- dfm(token.dic, dictionary = dict, stem = F, groups = "party")
+
+# Show dimensions
+dim(dfm.dic)
+
+# Show number of documents 
+ndoc(dfm.dic)
+
+# Show document names
+docnames(dfm.dic)
+
+# Show number of features 
+nfeat(dfm.dic)
+
+# Show top features
+topfeatures(dfm.dic, n = 2)
+
+# Show dfm
+dfm.dic
+```
+
+
+# Plot propportions
+
+```{r}
+# Compute propportions
+prop <- as.data.frame(t(apply(dfm.dic, 1, sum) / apply(dfm.all, 1, sum)))*100
+rownames(prop) <- "Proportion in %"
+
+# Plot propportions
+  prop %>% gather %>% head(3)
+  prop %>% 
+  gather %>% 
+  ggplot(aes(key, value)) + 
+  geom_point() +
+  ggtitle("Proportion of words associated with populism to total words") +
+  theme(plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.0, vjust = 4)) +
+  xlab("Paries") + 
+  ylab("Propportions in %") 
+  
+# Plot propportions using dotchart
+  dotchart(apply(dfm.dic, 1, sum) / apply(dfm.all, 1, sum)*100, xlab = "Propportions in %", ylab = "Parties", 
+           main = "Proportion of words associated with populism to total words", color = c("red", "blue", "green", "brown", "orange"))
+```
+
+**Interpretation** <br />
+The graphs depict the relative amount of words (proportion of all words) associated with populism, grouped by political party. In order to spot and count words in the `data_corpus_irishbudget2010` connected with populism, we created a dictionary, using the key words found in Appendix B of [Rooduijn, Matthijs, and Teun Pauwels. 2011. "Measuring Populism: Comparing Two Methods of Content Analysis."  *West European Politics* 34(6): 1272–83.]. Subsequently, we measured the relative amount of populism in the `data_corpus_irishbudget2010` after grouping the documents by political parties. <br />
+
+Note that we excluded the following tokens from the `data_corpus_irishbudget2010`: <br />
+- numbers <br />
+- punctuation <br />
+- symbols <br />
+- separators <br />
+- twitter characters <br />
+- url beginning with http(s) <br />
+ 
+We did not stem our words nor did we exclude hyphens or any stop words since we are interested in a total of *all* words.  <br />
+
+If we remove stop words("english"), however,  the proportions increase to: <br />
+- FF = 0.02797594 <br />
+- FG = 0.173913 <br />
+- Green = 0.1173021 <br />
+- LAB = 0.1555748 <br />
+- SF = 0.3231018 <br />
+
+
+### Question 5
+
+Here we will use k-means clustering to see if we can produce groupings by party of the 1984 US House of Representatives, based on their voting records from 16 votes. This data is the object `HouseVotes84` from the `mlbench` package. Since this is stored as a list of factors, use the following code to transform it into a method that will work with the `kmeans()` function.
+```{r}
+data(HouseVotes84, package = "mlbench") 
+HouseVotes84num <- as.data.frame(lapply(HouseVotes84[, -1], unclass))
+HouseVotes84num[is.na(HouseVotes84num)] <- 0
+set.seed(2)  # make sure you do this before step b below
+```
+
+a.  What does each line of that code snippet do, and why was this operation needed? What is the `-1` indexing for?
+
+In the following we will describe each line of the code: <br />
+
+The <u> first line </u> loads the data.frame `HouseVotes84` from the `mlbench` package. An overview of the data is provided in the code that follows: 
+```{r}
+# Show class
+class(HouseVotes84)
+
+# Show glimpse
+glimpse(HouseVotes84)
+
+# Show column names
+names(HouseVotes84)
+
+# Show head 
+head(HouseVotes84)
+
+# Show tail
+tail(HouseVotes84)
+
+# Show dimensions
+dim(HouseVotes84)
+
+# Show number of rows
+nrow(HouseVotes84)
+
+# Show number of columns
+ncol(HouseVotes84)
+
+# Show summary
+summary(HouseVotes84)
+```
+
+The <u> second line </u> applies (**lapply**) the **unclass**-function to all columns in the data frame **HouseVotes84** but the first column (**[, -1]**). Subsequently, the results are saved as a new data frame (**as.data.frame**) in an object called **HouseVotes84num**. <br />
+
+All objects in R have a class, reported by the function class. For simple vectors this is just the mode, for example "numeric", "logical", "character" or "list", but "matrix", "array", "factor" and "data.frame" are other possible values. A special attribute known as the class of the object is used to allow for an object-oriented style of programming in R. For example if an object has class "data.frame", it will be printed in a certain way, the plot() function will display it graphically in a specific format, and other so-called generic functions such as summary() will react to it as an argument sensitive to its class. To remove temporarily the effects of class, we use the function unclass(). <br />
+
+Before running the second line of our code the variables in the data frame **HouseVotes84** had class "factor". After running the line the variables in the new data frame **HouseVotes84num** have class "integer". To be more precise, the "y-factors" got converted into integers of 2´s and the "n-factors" got converted into integers of 1´s. <br />
+
+In the <u> third line </u> all "NA´s" got replaced with integers of 0´s. The generic function **is.na** indicates which elements are missing. Furthermore, the variables in the new data frame **HouseVotes84num** now have class "numeric" stored as double precision floating point numbers. <br /> 
+
+The <u> last line </u> simply sets seeds in order to make our results reproducible. As an example: <br />
+
+These two results we will "never" reproduce as we asked for something "random":
+```{r}
+sample(LETTERS, 5)
+sample(LETTERS, 5)
+```
+
+These two, however, are identical because we set the seed:
+```{r}
+set.seed(42); sample(LETTERS, 5)
+set.seed(42); sample(LETTERS, 5)
+```
+
+
+b.  Perform a kmeans clustering on the votes only data, for 2 classes, after setting the seed to 2 as per above. Construct a table comparing the actual membership of the Congressperson's party (you will find this as one of the variables in the `HouseVotes84` data) to the cluster assigned by the kmeans procedure.  Report the 
+    i.   accuracy  
+    ii.  precision  
+    iii.  recall  
+
+## K-Means Clustering
+
+# Perform K-means clustering with K = 2
+```{r}
+# Set seed
+set.seed(2)
+
+# Define number of clusters
+k <- 2
+
+# Fit a k-means model and run the k-means algorithm only 1 time
+km.out <- kmeans(x = HouseVotes84num, centers = k, nstart = 1)
+
+# Inspect the result
+summary(km.out)
+
+# Print the cluster membership component of the model
+km.out$cluster
+
+# Print the km.out object
+print(km.out)
+
+# Choose the correct classification
+K.means.class <- if (max(mean(ifelse(km.out$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) == mean(ifelse(km.out$cluster == 1, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out$cluster == 1, "republican", "democrat")
+} else if (max(mean(ifelse(km.out$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out$cluster == 2, "republican", "democrat")==HouseVotes84$Class))  == mean(ifelse(km.out$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out$cluster == 2, "republican", "democrat")
+}
+
+# Create a confustion matrix 
+table(HouseVotes84$Class, K.means.class, dnn = c("True Class", "Predicted Class"))
+
+# Compute the accuracy
+mean(HouseVotes84$Class==K.means.class)
+```
+
+
+c.  Repeat b twice more to produce three more confusion matrix tables, comparing the results.  Are they the same?  If not, why not?
+
+```{r}
+# Set seed
+set.seed(1)
+
+# Fit a k-means model and run the k-means algorithm only 1 time
+km.out.2 <- kmeans(x = HouseVotes84num, centers = k, nstart = 1)
+
+# Inspect the result
+summary(km.out.2)
+
+# Print the cluster membership component of the model
+km.out.2$cluster
+
+# Print the km.out.2 object
+print(km.out.2)
+
+# Choose the correct classification
+K.means.class.2 <- if (max(mean(ifelse(km.out.2$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out.2$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) == mean(ifelse(km.out.2$cluster == 1, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out.2$cluster == 1, "republican", "democrat")
+} else if (max(mean(ifelse(km.out.2$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out.2$cluster == 2, "republican", "democrat")==HouseVotes84$Class))  == mean(ifelse(km.out.2$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out.2$cluster == 2, "republican", "democrat")
+}
+
+# Create a confustion matrix 
+table(HouseVotes84$Class, K.means.class.2, dnn = c("True Class", "Predicted Class"))
+```
+
+
+```{r}
+# Define number of clusters
+set.seed(13)
+
+# Fit a k-means model and run the k-means algorithm only 1 time
+km.out.3 <- kmeans(x = HouseVotes84num, centers = k, nstart = 1)
+
+# Inspect the result
+summary(km.out.3)
+
+# Print the cluster membership component of the model
+km.out.3$cluster
+
+# Print the km.out.3 object
+print(km.out.3)
+
+# Choose the correct classification
+K.means.class.3 <- if (max(mean(ifelse(km.out.3$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out.3$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) == mean(ifelse(km.out.3$cluster == 1, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out.3$cluster == 1, "republican", "democrat")
+} else if (max(mean(ifelse(km.out.3$cluster == 1, "republican", "democrat")==HouseVotes84$Class), mean(ifelse(km.out.3$cluster == 2, "republican", "democrat")==HouseVotes84$Class))  == mean(ifelse(km.out.3$cluster == 2, "republican", "democrat")==HouseVotes84$Class)) {
+ifelse(km.out.3$cluster == 2, "republican", "democrat")
+}
+
+# Create a confustion matrix 
+table(HouseVotes84$Class, K.means.class.3, dnn = c("True Class", "Predicted Class"))
+```
+
+**Interpretation** <br />
+The second confusion matrix differs from the first two (**If we would not change the seed we would always get the same result**). In order to examine the source of this difference, we run the model a few more times (for illustration purposes only, we run the model with only one input variable, namely vote 4) and plot the data with each observation colored according to its cluster assignment as well as labeled with the corresponding within-cluster sum of squares. Note that we do not need to worry about the fact that the colors are chosen different i.e., the coloring is arbitrary.
+
+```{r}
+# Set seed
+set.seed(1)
+# Set up 3 x 3 plotting grid
+par(mfrow = c(3, 3))
+
+for(i in 1:9) {
+  # Fit a k-means model and run the k-means algorithm only 1 time
+  km.out.4 <- kmeans(HouseVotes84num[,4], centers=2, nstart=1)
+  
+  # Plot the data, with each observation colored according to its cluster assignment for vote 4
+  plot(HouseVotes84num[,4], col = km.out.4$cluster, 
+       main = km.out.4$tot.withinss, 
+       xlab = "", ylab = "")
+}
+```
+
+**Interpretation** <br />
+Thus, the results are not always the same since the K-means algorithm finds a local rather than a global optimum, and therefore the results obtained will depend on the initial (random) cluster assignment. For this reason, it is important to run the algorithm multiple times with different random initial configurations. Subsequently, one selects the best solution, i.e., the one for which the within-cluster sum of squares is smallest. To run the kmeans() function in R with multiple initial cluster assignments, we can use the `nstart` argument. If a value of nstart greater than one is used, then K-means clustering will be performed using multiple random assignments, and the kmeans() function will report only the best results. The individual within-cluster sum-of-squares are contained in the vector km.outwithinss. It is recommend to run K-means clustering with a large value of nstart, such as 20 or 50, since otherwise an undesirable local optimum may be obtained (see graph above). When performing K-means clustering, in addition to using multiple initial cluster assignments, it is also important to set a random seed using the set.seed() function. In this way, the initial cluster assignments in Step 1 can be replicated, and the K-means output will be fully reproducible. 
