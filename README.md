@@ -1,6 +1,6 @@
 # Univariate-regression-Multivariate-regression-Logistic-regression-K-nearest-neighbors-Naive-Baye
 
-Introduktion:
+Introduction:
 Implementation of different machine learning approaches
 
 Methods:
