@@ -1,4 +1,4 @@
-# Univariate-regression-Multivariate-regression-Logistic-regression-K-nearest-neighbors-Naive-Baye
+# LSE Project: Different machine learning methods
 
 Introduction:
 Implementation of different machine learning approaches
