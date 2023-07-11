@@ -1,6 +1,6 @@
 # LSE Project: Different machine learning methods
 
-Implementation of various machine learning methods
+Implementing various machine learning methods
 
 Introduction:
 In this project, we implement different machine learning methods.
